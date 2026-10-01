@@ -95,6 +95,9 @@ func newTestServer(t *testing.T) (*fakeReddit, *httptest.Server) {
 		case r.URL.Path == "/r/selfhosted/about":
 			fake.aboutCalls.Add(1)
 			io.WriteString(w, aboutJSON)
+		case r.URL.Path == "/r/ghost/hot":
+			// Reddit answers some unknown subreddits with an empty listing.
+			io.WriteString(w, `{"kind":"Listing","data":{"children":[]}}`)
 		case r.URL.Path == "/r/private/hot":
 			w.WriteHeader(http.StatusForbidden)
 		default:
@@ -279,6 +282,7 @@ func TestErrors(t *testing.T) {
 	for path, want := range map[string]int{
 		"/r/doesnotexist/.rss":            http.StatusNotFound,
 		"/r/private/.rss":                 http.StatusForbidden,
+		"/r/ghost/.rss":                   http.StatusNotFound,
 		"/r/selfhosted/":                  http.StatusNotFound,
 		"/r/selfhosted/new/.rss?limit=x":  http.StatusBadRequest,
 		"/r/selfhosted/top/.rss?t=decade": http.StatusBadRequest,

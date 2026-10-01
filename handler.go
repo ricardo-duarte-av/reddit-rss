@@ -282,7 +282,12 @@ func (s *Server) buildFeed(r *http.Request, req *feedRequest) (*Feed, time.Time,
 	case kindSubreddit, kindSubComments:
 		feed.Title = "r/" + req.Subreddit
 		feed.AlternateURL = s.cfg.LinkBase + "/r/" + req.Subreddit + "/"
-		s.addSubredditDetails(feed, req.Subreddit)
+		err := s.addSubredditDetails(feed, req.Subreddit)
+		// Reddit answers some unknown subreddit names with an empty listing
+		// instead of a 404; their /about does fail, though.
+		if len(items) == 0 && (errors.Is(err, ErrNotFound) || errors.Is(err, ErrForbidden)) {
+			return nil, time.Time{}, time.Time{}, err
+		}
 		switch {
 		case req.Kind == kindSubComments:
 			feed.Title += " (comments)"
@@ -320,11 +325,13 @@ func (s *Server) buildFeed(r *http.Request, req *feedRequest) (*Feed, time.Time,
 }
 
 // addSubredditDetails fills in the subreddit's title, description and icon.
-func (s *Server) addSubredditDetails(feed *Feed, subreddit string) {
+// Failing to get them is not fatal; the error is returned for the caller to
+// judge.
+func (s *Server) addSubredditDetails(feed *Feed, subreddit string) error {
 	sub := strings.ToLower(subreddit)
 	// Multireddits ("a+b") have no single /about to describe them.
 	if strings.Contains(sub, "+") {
-		return
+		return nil
 	}
 
 	about, _, _, err := s.abouts.Get(sub, func() (*About, error) {
@@ -335,7 +342,7 @@ func (s *Server) addSubredditDetails(feed *Feed, subreddit string) {
 	if err != nil {
 		// The listing worked, so a feed without the extras is still useful.
 		log.Printf("Could not fetch details of r/%s: %v\n", subreddit, err)
-		return
+		return err
 	}
 	if about.Title != "" {
 		feed.Title = about.Title
@@ -344,6 +351,7 @@ func (s *Server) addSubredditDetails(feed *Feed, subreddit string) {
 	if icon := about.Icon(); icon != "" {
 		feed.Icon = icon
 	}
+	return nil
 }
 
 func (s *Server) writeError(w http.ResponseWriter, req *feedRequest, err error) {
