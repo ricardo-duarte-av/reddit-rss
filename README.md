@@ -74,14 +74,61 @@ curl http://localhost:8080/r/selfhosted/new/.rss
 
 Or install `reddit-rss.service` as a systemd unit (it reads `.env`).
 
-### Docker
+### Docker Compose
 
 Every push builds a multi-arch (amd64/arm64) image and publishes it to GitHub
-Container Registry, tagged with the branch name, `sha-<commit>`, and `latest`
-for `main`:
+Container Registry as `ghcr.io/ricardo-duarte-av/reddit-rss`, tagged with the
+branch name, `sha-<commit>`, and `latest` for `main`.
+
+1. Put `docker-compose.yaml` and `.env.example` in a directory.
+2. Create `.env` and fill in at least `REDDIT_CLIENT_ID` and `REDDIT_CLIENT_SECRET`:
+
+   ```sh
+   cp .env.example .env
+   chmod 600 .env   # it holds your Reddit secret
+   ```
+
+   Compose passes every variable in `.env` to the container. Use plain
+   `KEY=value` lines (no `export`), and quote values with spaces, like
+   `REDDIT_USER_AGENT="linux:reddit-rss:v1.0 (by /u/you)"`. `.env` is git-ignored.
+3. Start it:
+
+   ```sh
+   docker compose up -d
+   curl http://localhost:8080/healthz          # ok
+   curl http://localhost:8080/r/selfhosted/.rss
+   docker compose logs -f                      # token or Reddit errors show up here
+   ```
+
+**Ports.** The app always listens on `8080` inside the container; the compose
+file pins `LISTEN_ADDR=:8080` so a stray value in `.env` cannot break that.
+Choose where it is reachable with the `ports:` line, `"<host address>:<host port>:8080"`:
+
+| `ports:` | Reachable at |
+| --- | --- |
+| `"127.0.0.1:8080:8080"` (default) | only this machine, e.g. for a reverse proxy (nginx, Caddy, Traefik) |
+| `"127.0.0.1:9000:8080"` | only this machine, on port 9000 (if 8080 is taken) |
+| `"8080:8080"` | every network interface, port 8080 |
+
+If the reverse proxy itself runs in Docker, you can drop `ports:` and put both
+containers on a shared network; the proxy then reaches it at `http://reddit-rss:8080`.
+
+**Public URL.** Set `BASE_URL` in `.env` to the address people use, e.g.
+`BASE_URL=https://the-new-reddit-rss.com`, so the feeds' self links point there
+and not at `localhost:8080`.
+
+**Updating.**
 
 ```sh
-docker run -d --name reddit-rss -p 8080:8080 --env-file .env --restart unless-stopped \
+docker compose pull && docker compose up -d
+```
+
+To stay on a known build, replace `latest` with a `sha-<commit>` tag.
+
+Without Compose:
+
+```sh
+docker run -d --name reddit-rss -p 127.0.0.1:8080:8080 --env-file .env --restart unless-stopped \
   ghcr.io/ricardo-duarte-av/reddit-rss:latest
 ```
 

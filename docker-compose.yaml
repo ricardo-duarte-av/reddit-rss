@@ -1,0 +1,24 @@
+# Sample Compose file for reddit-rss. See "Docker Compose" in README.md.
+#
+#   cp .env.example .env   # then fill in REDDIT_CLIENT_ID / REDDIT_CLIENT_SECRET
+#   docker compose up -d
+
+services:
+  reddit-rss:
+    image: ghcr.io/ricardo-duarte-av/reddit-rss:latest
+    container_name: reddit-rss
+    restart: unless-stopped
+
+    # Reddit credentials and settings (BASE_URL, CACHE_TTL, ...).
+    env_file: .env
+
+    environment:
+      # The app always listens on 8080 inside the container; change the
+      # published port below instead. This overrides any LISTEN_ADDR in .env.
+      LISTEN_ADDR: ":8080"
+
+    ports:
+      # "<host address>:<host port>:<container port>"
+      # Bound to localhost, for a reverse proxy on the same machine.
+      # Use "8080:8080" to expose it on all interfaces instead.
+      - "127.0.0.1:8080:8080"
