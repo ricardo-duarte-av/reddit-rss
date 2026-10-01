@@ -1,0 +1,18 @@
+[Unit]
+Description=reddit-rss (Reddit-style RSS/Atom feeds from the Reddit API)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=daedric
+WorkingDirectory=/home/daedric/reddit-rss
+EnvironmentFile=/home/daedric/reddit-rss/.env
+ExecStart=/home/daedric/reddit-rss/reddit-rss
+Restart=always
+RestartSec=10s
+StandardOutput=append:/var/log/scripts/reddit-rss.log
+StandardError=append:/var/log/scripts/reddit-rss.log
+
+[Install]
+WantedBy=multi-user.target
